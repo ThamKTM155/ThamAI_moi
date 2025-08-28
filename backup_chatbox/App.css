@@ -1,0 +1,12 @@
+.App {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 0 auto;
+  padding: 1rem;
+  max-width: 600px;
+}
+
+.app-title {
+  margin-bottom: 1rem;
+  color: #333;
+}
