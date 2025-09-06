@@ -1,69 +1,55 @@
-# React + TypeScript + Vite
+# ThamAI_moi — Trợ lý AI cá nhân
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 📂 Cấu trúc
+ThamAI_moi/
+├── frontend/ # React giao diện
+├── server/ # Flask backend
+├── package.json # chạy song song FE + BE
+├── setup.ps1 # script cài đặt lần đầu
+└── start.ps1 # script khởi động trợ lý
+---
 
-Currently, two official plugins are available:
+## 🚀 Cách dùng
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1️⃣ Cài đặt lần đầu
+- Nhấp chuột phải `setup.ps1` → Run with PowerShell  
+- Nhập **API Key OpenAI** (sk-xxxx)  
 
-## Expanding the ESLint configuration
+Script sẽ tự động:
+- Tạo venv Python + cài thư viện backend  
+- Copy `.env.example` thành `.env`  
+- Cài npm packages (root + frontend)  
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 2️⃣ Khởi động
+- Nhấp chuột phải `start.ps1` → Run with PowerShell  
+- Mở [http://localhost:3000](http://localhost:3000) để chat  
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Backend chạy ở [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📝 Ghi chú
+- Nếu Windows chặn script:  
+powershell -ExecutionPolicy Bypass -File .\setup.ps1
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- Sau đó dùng:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+
+
+- Frontend: React (Node.js 18+)  
+- Backend: Flask (Python 3.9+)  
+
+
+👉 Giờ anh chỉ cần copy đúng toàn bộ file trên vào C:\Users\Administrator\Documents\ThamAI_moi, rồi nén thành .zip (chuột phải → Send to → Compressed).
+
+Sau này khi con anh nhận món quà:
+
+Giải nén
+
+Nhấp setup.ps1 (lần đầu)
+
+Nhấp start.ps1 (chạy hằng ngày)
+
+là dùng ngay 🎉.

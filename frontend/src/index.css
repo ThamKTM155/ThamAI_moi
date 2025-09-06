@@ -1,5 +1,15 @@
-import React from "react";
-import ReactDOM from "react-dom";
-import App from "./App";
+/* Reset mặc định */
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  background-color: #f5f6fa;
+}
 
-ReactDOM.render(<App />, document.getElementById("root"));
+/* Canh giữa ứng dụng */
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

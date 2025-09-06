@@ -1,112 +1,179 @@
-// frontend/src/components/ChatBox.js
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import "./ChatBox.css"; // nhớ có file CSS đi kèm
 
-export default function ChatBox() {
-  const [messages, setMessages] = useState([]); // {sender, text}
-  const [recording, setRecording] = useState(false);
-  const [status, setStatus] = useState("");
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+const ChatBox = () => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const messagesEndRef = useRef(null);
 
-  const startRecording = async () => {
-    setStatus("Yêu cầu quyền micro...");
+  // Tự động cuộn xuống khi có tin nhắn mới
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Hàm phát giọng nói
+  const speak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "vi-VN";
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Thêm message mới vào khung chat
+  const addMessage = (text, sender) => {
+    const newMsg = {
+      sender,
+      text,
+      timestamp: new Date().toLocaleString(),
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    if (sender === "bot") speak(text);
+  };
+
+  // Gửi text tới Flask backend
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    addMessage(input, "user");
+    setInput("");
+    setIsLoading(true);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      audioChunksRef.current = [];
+      const response = await fetch("http://127.0.0.1:5000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input }),
+      });
 
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        setStatus("Gửi audio lên server...");
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        // show temporary "Bạn nói" message (will replace with transcript)
-        setMessages((prev) => [...prev, { sender: "🧑", text: "(đang gửi audio...)" }]);
-
-        // Build FormData
-        const fd = new FormData();
-        fd.append("file", audioBlob, "recording.webm");
-        // optional: fd.append("lang", "vi");
-
-        try {
-          const resp = await fetch("http://127.0.0.1:5000/voice", {
-            method: "POST",
-            body: fd,
-          });
-          const data = await resp.json();
-          if (data.error) {
-            setMessages((prev) => [...prev, { sender: "🤖", text: "Lỗi server: " + data.error }]);
-            setStatus("");
-            return;
-          }
-
-          // Replace last (placeholder) user message with actual transcript
-          setMessages((prev) => {
-            // remove last placeholder if exists
-            const copy = prev.slice(0, -1);
-            copy.push({ sender: "🧑", text: data.transcript || "(không nhận diện được)" });
-            return copy;
-          });
-
-          // Add bot reply text
-          setMessages((prev) => [...prev, { sender: "🤖", text: data.reply }]);
-          setStatus("Phát âm thanh...");
-
-          // Play base64 audio
-          if (data.audio_b64 && data.audio_mime) {
-            const audioSrc = `data:${data.audio_mime};base64,${data.audio_b64}`;
-            const audio = new Audio(audioSrc);
-            audio.play().catch((e) => console.error("play error:", e));
-          }
-          setStatus("");
-        } catch (err) {
-          console.error(err);
-          setMessages((prev) => [...prev, { sender: "🤖", text: "Lỗi kết nối tới server." }]);
-          setStatus("");
-        }
-      };
-
-      mediaRecorderRef.current.start();
-      setRecording(true);
-      setStatus("Đang ghi âm... Nhấn STOP để dừng.");
-    } catch (err) {
-      console.error(err);
-      setStatus("Không thể truy cập micro: " + err.message);
+      const data = await response.json();
+      addMessage(data.reply || "Xin lỗi, không có phản hồi.", "bot");
+    } catch (error) {
+      console.error("Lỗi khi gửi tin nhắn:", error);
+      addMessage("⚠️ Lỗi khi gửi tin nhắn.", "bot");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Bắt đầu ghi âm
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+
+      let chunks = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        chunks = [];
+        await sendVoice(blob);
+      };
+
+      recorder.start();
+    } catch (err) {
+      console.error("Không thể bắt đầu ghi âm:", err);
+      addMessage("⚠️ Không thể bật micro.", "bot");
+    }
+  };
+
+  // Dừng ghi âm
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // Gửi voice tới Flask backend
+  const sendVoice = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("http://127.0.0.1:5000/voice", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.reply) {
+        addMessage(data.reply, "bot");
+      } else {
+        addMessage("⚠️ Không có phản hồi từ voice.", "bot");
+      }
+    } catch (err) {
+      console.error("Lỗi gọi voice API:", err);
+      addMessage("⚠️ Lỗi khi xử lý voice.", "bot");
     }
   };
 
   return (
     <div className="chat-container">
-      <div className="chat-header">
-        <h2>ThamAI — Trợ lý nghe & nói</h2>
-        <div className="status">{status}</div>
-      </div>
+      <div className="chat-header">ThamAI — Trợ lý nghe & nói</div>
 
-      <div className="messages" id="messages">
-        {messages.map((m, i) => (
-          <div key={i} className={`msg ${m.sender === "🤖" ? "bot" : "user"}`}>
-            <span className="sender">{m.sender}</span>
-            <span className="text">: {m.text}</span>
+      <div className="chat-box">
+        {messages.map((msg, i) => (
+          <div key={i} className={`message ${msg.sender}`}>
+            <img
+              src={
+                msg.sender === "user"
+                  ? "https://cdn-icons-png.flaticon.com/512/847/847969.png"
+                  : "https://cdn-icons-png.flaticon.com/512/4712/4712107.png"
+              }
+              className="avatar"
+              alt={msg.sender}
+            />
+            <div>
+              <div className="bubble">{msg.text}</div>
+              <div className="timestamp">{msg.timestamp}</div>
+            </div>
           </div>
         ))}
+
+        {isLoading && (
+          <div className="message bot">
+            <img
+              src="https://cdn-icons-png.flaticon.com/512/4712/4712107.png"
+              className="avatar"
+              alt="Bot"
+            />
+            <div>
+              <div className="bubble typing">
+                <span></span><span></span><span></span>
+              </div>
+              <div className="timestamp">{new Date().toLocaleString()}</div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
       </div>
 
-      <div className="controls">
-        {!recording ? (
-          <button className="btn-record" onClick={startRecording}>🎤 Ghi âm</button>
+      <div className="input-area">
+        <input
+          type="text"
+          placeholder="Nhập tin nhắn..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          disabled={isLoading}
+        />
+        <button onClick={handleSend} disabled={isLoading}>Gửi</button>
+        {!isRecording ? (
+          <button onClick={startRecording} disabled={isLoading}>🎤 Nói</button>
         ) : (
-          <button className="btn-stop" onClick={stopRecording}>⏹️ Dừng</button>
+          <button onClick={stopRecording}>⏹ Dừng</button>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default ChatBox;

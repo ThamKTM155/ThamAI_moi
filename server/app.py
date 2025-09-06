@@ -1,51 +1,98 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from dotenv import load_dotenv
 import openai
-import base64
-import os
+import os, datetime
 
+# ---------------------------
+# Load API key từ .env
+# ---------------------------
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    raise RuntimeError("❌ Thiếu OPENAI_API_KEY trong file .env")
+
+openai.api_key = api_key
+
+# ---------------------------
+# Khởi tạo Flask
+# ---------------------------
 app = Flask(__name__)
 CORS(app)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-@app.route("/speech", methods=["POST"])
-def speech_to_text():
-    # Nhận file âm thanh từ frontend
-    audio_file = request.files["audio"]
+# ---------------------------
+# API /chat
+# ---------------------------
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        data = request.json
+        user_msg = data.get("message", "")
 
-    # Gửi sang Whisper API
-    transcript = openai.Audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_file
-    )
+        if not user_msg.strip():
+            return jsonify({"error": "Tin nhắn rỗng"}), 400
 
-    user_text = transcript.text
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Bạn là trợ lý AI ThamAI, trả lời ngắn gọn, tự nhiên bằng tiếng Việt."},
+                {"role": "user", "content": user_msg}
+            ]
+        )
 
-    # Gửi text sang GPT
-    completion = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": user_text}]
-    )
-    reply_text = completion.choices[0].message.content
+        reply = response.choices[0].message.content.strip()
 
-    # Tạo giọng nói TTS
-    speech_file_path = "reply.mp3"
-    with openai.audio.speech.with_streaming_response.create(
-        model="gpt-4o-mini-tts",
-        voice="alloy",
-        input=reply_text
-    ) as response:
-        response.stream_to_file(speech_file_path)
+        return jsonify({
+            "reply": reply,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
 
-    # Trả về text + audio (base64)
-    with open(speech_file_path, "rb") as f:
-        audio_base64 = base64.b64encode(f.read()).decode("utf-8")
+    except Exception as e:
+        return jsonify({"error": f"Lỗi khi xử lý chat: {str(e)}"}), 500
 
-    return jsonify({
-        "text": reply_text,
-        "audio": audio_base64
-    })
 
+# ---------------------------
+# API /voice
+# ---------------------------
+@app.route("/voice", methods=["POST"])
+def voice():
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "Không có file ghi âm"}), 400
+
+        audio_file = request.files["file"]
+
+        # B1: chuyển giọng nói -> text
+        transcript = openai.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
+        )
+        user_text = transcript.text.strip()
+
+        # B2: gọi chat để phản hồi
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Bạn là trợ lý AI ThamAI, trả lời ngắn gọn, tự nhiên bằng tiếng Việt."},
+                {"role": "user", "content": user_text}
+            ]
+        )
+        reply = response.choices[0].message.content.strip()
+
+        return jsonify({
+            "reply": reply,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Lỗi khi xử lý voice: {str(e)}"}), 500
+
+
+# ---------------------------
+# Main
+# ---------------------------
 if __name__ == "__main__":
-    app.run(port=5000)
+    print("✅ Đã nạp OPENAI_API_KEY, bắt đầu bằng:", api_key[:8])
+    app.run(debug=True)

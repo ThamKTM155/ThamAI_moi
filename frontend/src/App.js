@@ -1,10 +1,20 @@
 import React from "react";
 import ChatBox from "./components/ChatBox";
 
-export default function App() {
+function App() {
   return (
-    <div className="app-wrapper">
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        background: "#f5f6fa",
+      }}
+    >
       <ChatBox />
     </div>
   );
 }
+
+export default App;
