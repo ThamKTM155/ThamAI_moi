@@ -1,98 +1,88 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-import openai
-import os, datetime
+from openai import OpenAI
 
-# ---------------------------
-# Load API key từ .env
-# ---------------------------
+# Load biến môi trường từ .env
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
 
-if not api_key:
-    raise RuntimeError("❌ Thiếu OPENAI_API_KEY trong file .env")
-
-openai.api_key = api_key
-
-# ---------------------------
-# Khởi tạo Flask
-# ---------------------------
 app = Flask(__name__)
 CORS(app)
 
+# Lấy API key từ file .env (nếu có)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# ---------------------------
-# API /chat
-# ---------------------------
+client = None
+if OPENAI_API_KEY:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+# -------------------------------
+# Route kiểm tra server
+# -------------------------------
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "✅ ThamAI backend đang chạy"})
+
+
+# -------------------------------
+# Route chat (vẫn gọi OpenAI nếu có key)
+# -------------------------------
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        data = request.json
-        user_msg = data.get("message", "")
+        data = request.get_json()
+        user_message = data.get("message", "")
 
-        if not user_msg.strip():
+        if not user_message:
             return jsonify({"error": "Tin nhắn rỗng"}), 400
 
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Bạn là trợ lý AI ThamAI, trả lời ngắn gọn, tự nhiên bằng tiếng Việt."},
-                {"role": "user", "content": user_msg}
-            ]
-        )
+        # Nếu có API key thì gọi OpenAI
+        if client:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Bạn là trợ lý ảo ThamAI, nói chuyện thân thiện."},
+                    {"role": "user", "content": user_message}
+                ]
+            )
+            reply = response.choices[0].message.content
+        else:
+            # Nếu chưa có key thì trả lời giả lập
+            reply = f"📌 (Giả lập) Bạn vừa nói: {user_message}"
 
-        reply = response.choices[0].message.content.strip()
-
-        return jsonify({
-            "reply": reply,
-            "timestamp": datetime.datetime.now().isoformat()
-        })
+        return jsonify({"reply": reply})
 
     except Exception as e:
-        return jsonify({"error": f"Lỗi khi xử lý chat: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-# ---------------------------
-# API /voice
-# ---------------------------
+# -------------------------------
+# Route voice (giả lập, không gọi API)
+# -------------------------------
 @app.route("/voice", methods=["POST"])
 def voice():
     try:
         if "file" not in request.files:
-            return jsonify({"error": "Không có file ghi âm"}), 400
+            return jsonify({"error": "Không tìm thấy file voice"}), 400
 
-        audio_file = request.files["file"]
+        file = request.files["file"]
 
-        # B1: chuyển giọng nói -> text
-        transcript = openai.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
-        user_text = transcript.text.strip()
+        if file.filename == "":
+            return jsonify({"error": "File trống"}), 400
 
-        # B2: gọi chat để phản hồi
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Bạn là trợ lý AI ThamAI, trả lời ngắn gọn, tự nhiên bằng tiếng Việt."},
-                {"role": "user", "content": user_text}
-            ]
-        )
-        reply = response.choices[0].message.content.strip()
+        # ✅ Giả lập xử lý voice
+        fake_transcript = "✅ Voice đã nhận thành công (giả lập, chưa gọi OpenAI)."
 
-        return jsonify({
-            "reply": reply,
-            "timestamp": datetime.datetime.now().isoformat()
-        })
+        return jsonify({"reply": fake_transcript})
 
     except Exception as e:
-        return jsonify({"error": f"Lỗi khi xử lý voice: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-# ---------------------------
-# Main
-# ---------------------------
+# -------------------------------
+# Chạy server
+# -------------------------------
 if __name__ == "__main__":
-    print("✅ Đã nạp OPENAI_API_KEY, bắt đầu bằng:", api_key[:8])
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

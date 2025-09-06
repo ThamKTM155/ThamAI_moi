@@ -94,7 +94,7 @@ const ChatBox = () => {
   // Gửi voice tới Flask backend
   const sendVoice = async (file) => {
     const formData = new FormData();
-    formData.append("file", file);
+   formData.append("audio", file, "recording.webm");
 
     try {
       const res = await fetch("http://127.0.0.1:5000/voice", {
