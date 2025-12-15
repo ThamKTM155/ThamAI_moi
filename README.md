@@ -42,14 +42,3 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 - Backend: Flask (Python 3.9+)  
 
 
-👉 Giờ anh chỉ cần copy đúng toàn bộ file trên vào C:\Users\Administrator\Documents\ThamAI_moi, rồi nén thành .zip (chuột phải → Send to → Compressed).
-
-Sau này khi con anh nhận món quà:
-
-Giải nén
-
-Nhấp setup.ps1 (lần đầu)
-
-Nhấp start.ps1 (chạy hằng ngày)
-
-là dùng ngay 🎉.
